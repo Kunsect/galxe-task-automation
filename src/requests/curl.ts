@@ -1,15 +1,17 @@
 import { Curl } from 'node-libcurl'
+import { isJsonString } from '../utils/common'
 import 'dotenv/config'
 
 /**
  * Curl 请求类
  */
-class CurlRequest {
-  newInstance() {
+class CurlInstance {
+  private createInstance(): Curl {
     const curl = new Curl()
 
     curl.setOpt(Curl.option.SSL_VERIFYHOST, 0)
     curl.setOpt(Curl.option.SSL_VERIFYPEER, 0)
+    curl.setOpt(Curl.option.FOLLOWLOCATION, true)
 
     const proxyIp = process.env.PROXY_IP
     if (proxyIp) curl.setOpt(Curl.option.PROXY, proxyIp)
@@ -17,18 +19,16 @@ class CurlRequest {
     return curl
   }
 
-  setHeaders(curl: Curl, headers: string[]): void {
+  async get(url: string, headers: string[] = [], needClearCookie: boolean = false): Promise<any> {
+    const curl = this.createInstance()
+
     curl.setOpt(Curl.option.HTTPHEADER, headers)
-  }
 
-  setPostFields(curl: Curl, payload: object): void {
-    curl.setOpt(Curl.option.POSTFIELDS, JSON.stringify(payload))
-  }
-
-  async get(url: string, headers?: string[]): Promise<any> {
-    const curl = this.newInstance()
-
-    this.setHeaders(curl, headers || [])
+    if (needClearCookie) {
+      curl.setOpt(Curl.option.COOKIEFILE, '')
+      curl.setOpt(Curl.option.FRESH_CONNECT, true)
+      curl.setOpt(Curl.option.FORBID_REUSE, true)
+    }
 
     return new Promise((resolve, reject) => {
       curl.setOpt(Curl.option.URL, url)
@@ -36,7 +36,7 @@ class CurlRequest {
 
       curl.on('end', (statusCode: number, data: string, headers: object) => {
         try {
-          resolve({ statusCode, headers, data: JSON.parse(data) })
+          resolve({ statusCode, headers, data: isJsonString(data) ? JSON.parse(data) : data })
         } catch (error) {
           reject(`Error parsing response: ${error}`)
         } finally {
@@ -55,11 +55,11 @@ class CurlRequest {
     })
   }
 
-  async post(url: string, payload: object, headers: string[]): Promise<any> {
-    const curl = this.newInstance()
+  async post(url: string, payload: any, headers: string[] = []): Promise<any> {
+    const curl = this.createInstance()
 
-    this.setPostFields(curl, payload)
-    this.setHeaders(curl, headers)
+    curl.setOpt(Curl.option.HTTPHEADER, headers)
+    curl.setOpt(Curl.option.POSTFIELDS, JSON.stringify(payload))
 
     return new Promise((resolve, reject) => {
       curl.setOpt(Curl.option.URL, url)
@@ -67,7 +67,7 @@ class CurlRequest {
 
       curl.on('end', (statusCode: number, data: string, headers: object) => {
         try {
-          resolve({ statusCode, headers, data: JSON.parse(data) })
+          resolve({ statusCode, headers, data: isJsonString(data) ? JSON.parse(data) : data })
         } catch (error) {
           reject(`Error parsing response: ${error}`)
         } finally {
@@ -78,6 +78,7 @@ class CurlRequest {
       curl.on('error', (err) => {
         console.error('Error:', err)
         curl.close()
+
         reject(err)
       })
 
@@ -86,4 +87,6 @@ class CurlRequest {
   }
 }
 
-export default CurlRequest
+const curl = new CurlInstance()
+
+export default curl

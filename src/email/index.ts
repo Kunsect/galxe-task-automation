@@ -1,9 +1,7 @@
-import { waitting } from './common'
-import CurlRequest from './curl'
+import { waitting } from '../utils/common'
+import curl from '../requests/curl'
 
 const EMAIL_URL: string = 'https://www.1secmail.com/api/v1/'
-
-const curlRequest: CurlRequest = new CurlRequest()
 
 /**
  * 邮件管理类
@@ -15,7 +13,7 @@ export class EmailManager {
 
   async getEmail() {
     if (!this.email) {
-      const res = await curlRequest.get(`${EMAIL_URL}?action=genRandomMailbox`)
+      const res = await curl.get(`${EMAIL_URL}?action=genRandomMailbox`)
 
       this.email = res.data[0]
     }
@@ -24,14 +22,16 @@ export class EmailManager {
   }
 
   async getEmailCode(): Promise<string> {
+    if (!this.email) await this.getEmail()
+
     const [username, domain] = this.email.split('@')
     const mailParams = `login=${username}&domain=${domain}`
 
     let emailId
     for (let i = 0; i < 10; i++) {
-      await waitting(3500)
+      await waitting(4000)
 
-      const receivesRes = await curlRequest.get(`${EMAIL_URL}?action=getMessages&${mailParams}`)
+      const receivesRes = await curl.get(`${EMAIL_URL}?action=getMessages&${mailParams}`)
 
       if (receivesRes.data.length) {
         emailId = receivesRes.data[0]['id']
@@ -42,7 +42,7 @@ export class EmailManager {
 
     if (!emailId) throw Error('uncatch email id')
 
-    const emailRes = await curlRequest.get(`${EMAIL_URL}?action=readMessage&id=${emailId}&${mailParams}`)
+    const emailRes = await curl.get(`${EMAIL_URL}?action=readMessage&id=${emailId}&${mailParams}`)
 
     const matches = emailRes.data.body.match(/<h1>(\d{6})</)
 

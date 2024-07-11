@@ -1,7 +1,7 @@
 {
   "author": "SohaDao - Kunsect",
   "scripts": {
-    "start": "ts-node index.ts"
+    "start": "ts-node scripts/main.ts"
   },
   "devDependencies": {
     "@types/bip39": "^3.0.0",

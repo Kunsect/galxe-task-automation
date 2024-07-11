@@ -1,7 +1,7 @@
 import * as fs from 'fs'
-import logger from './src/logger'
-import { Galxe, IUser } from './src/galxe'
-import { readFileToArray, waittingBetween } from './src/utils/common'
+import logger from './../src/logger'
+import { Galxe, IUser } from './../src/galxe'
+import { readFileToArray, waittingBetween } from './../src/utils/common'
 import 'dotenv/config'
 
 /**
@@ -35,7 +35,7 @@ const main = async () => {
 
       pathIndex += 1
     } catch (err: any) {
-      logger.error(err)
+      logger.error(err.message)
       logger.debug('uncatch error，waitting 20s to continue...')
 
       /**
@@ -46,28 +46,31 @@ const main = async () => {
        * 187: Authorization: Status is a duplicate. (187)
        * 1000: get ct0 fail
        */
-      const twitterErrorCode = [32, 37, 187, 326, 1000]
+      const needTwitter = Number(process.env.NEED_TWITTER) === 1
+      if (needTwitter) {
+        const twitterErrorCode = [32, 37, 187, 326, 1000]
 
-      if (twitterErrorCode.includes(err.code)) {
-        await galxe.unbindTwitter()
+        if (twitterErrorCode.includes(err.code)) {
+          await galxe.unbindTwitter()
 
-        const filePath = 'twitter.txt'
-        const twitterAccounts = readFileToArray(filePath)
+          const filePath = 'twitter.txt'
+          const twitterAccounts = readFileToArray(filePath)
 
-        let failAccount = null
-        const filteredTwitterAccounts = twitterAccounts.filter((item) => {
-          const included = item.includes(err.extra)
-          if (included) failAccount = item
+          let failAccount = null
+          const filteredTwitterAccounts = twitterAccounts.filter((item: string) => {
+            const included = item.includes(err.extra)
+            if (included) failAccount = item
 
-          return !included
-        })
+            return !included
+          })
 
-        const fileContent = filteredTwitterAccounts.join('\n')
-        fs.writeFileSync(filePath, fileContent)
+          const fileContent = filteredTwitterAccounts.join('\n')
+          fs.writeFileSync(filePath, fileContent)
 
-        if (failAccount) {
-          logger.warn(`fail account is: ${failAccount}`)
-          fs.appendFile('twitter-fail.txt', `${failAccount}\n`, () => {})
+          if (failAccount) {
+            logger.warn(`fail account is: ${failAccount}`)
+            fs.appendFile('twitter-fail.txt', `${failAccount}\n`, () => {})
+          }
         }
       }
 

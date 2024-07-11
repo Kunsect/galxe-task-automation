@@ -1,26 +1,26 @@
 import winston from 'winston'
+import 'dotenv/config'
 
 /**
  * 日志类
  *
  * 参考 winston 文档：https://github.com/winstonjs/winston
  */
-export class Logger {
+class Logger {
   logger: winston.Logger
 
   constructor() {
+    const { LOGGER_OUTPUT_NAME } = process.env
+
     this.logger = winston
       .createLogger({
         level: 'silly',
         format: winston.format.combine(
           winston.format.label({ label: 'galxe' }),
-          winston.format.timestamp({ format: 'MM.DD HH:mm' }),
+          winston.format.timestamp({ format: 'MM.DD HH:mm:ss' }),
           this.getCustomFormat()
         ),
-        transports: [
-          new winston.transports.File({ filename: 'galxe-error.log', level: 'error' }),
-          new winston.transports.File({ filename: 'galxe-combined.log' })
-        ]
+        transports: [...(LOGGER_OUTPUT_NAME ? [new winston.transports.File({ filename: LOGGER_OUTPUT_NAME })] : [])]
       })
       .add(
         new winston.transports.Console({
@@ -35,7 +35,7 @@ export class Logger {
 
   private getCustomFormat = () =>
     winston.format.printf(({ level, message, label, timestamp }) => {
-      return `${timestamp} [${label}] ${level}: ${message}`
+      return `${timestamp} ${level}: ${message}`
     })
 
   public debug(message: string) {
@@ -54,3 +54,7 @@ export class Logger {
     this.logger.error(message)
   }
 }
+
+const logger = new Logger()
+
+export default logger

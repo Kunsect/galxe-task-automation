@@ -39,7 +39,7 @@ export interface ISegWitWallet {
 /**
  * 钱包管理类
  *
- * 目前实现了 Evm 和 Taproot 的签名和交易
+ * 目前实现了 Evm 和 Taproot Signet 的签名和交易
  */
 export class WalletManager {
   pathIndex: number
