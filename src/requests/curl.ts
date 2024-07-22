@@ -1,5 +1,6 @@
 import { Curl } from 'node-libcurl'
 import { isJsonString } from '../utils/common'
+import querystring from 'querystring'
 import 'dotenv/config'
 
 /**
@@ -58,8 +59,10 @@ class CurlInstance {
   async post(url: string, payload: any, headers: string[] = []): Promise<any> {
     const curl = this.createInstance()
 
+    const isForm = headers.some((header) => header.includes('application/x-www-form-urlencoded'))
+
     curl.setOpt(Curl.option.HTTPHEADER, headers)
-    curl.setOpt(Curl.option.POSTFIELDS, JSON.stringify(payload))
+    curl.setOpt(Curl.option.POSTFIELDS, isForm ? querystring.stringify(payload) : JSON.stringify(payload))
 
     return new Promise((resolve, reject) => {
       curl.setOpt(Curl.option.URL, url)

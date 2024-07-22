@@ -3,7 +3,7 @@ import curl from '../requests/curl'
 import logger from '../logger'
 import 'dotenv/config'
 
-const BASE_URL = 'https://twitter.com'
+const BASE_URL = 'https://x.com'
 
 export class Twitter {
   headers: string[]
@@ -16,15 +16,29 @@ export class Twitter {
       const twitterAccounts = readFileToArray('twitter.txt')
 
       if (twitterAccounts.length) {
-        this.authToken = twitterAccounts[pathIndex]
+        const arr = twitterAccounts[pathIndex - 587].split(':')
+        this.authToken = arr[arr.length === 7 ? 6 : 4]
 
         logger.info(`the twitter auth token is ${this.authToken}`)
       }
     }
 
     this.headers = [
+      'accept: */*',
       'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-      `Cookie: auth_token=${this.authToken}`
+      `Cookie: auth_token=${this.authToken}`,
+      'accept-language: en;q=0.9',
+      'authorization: Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+      'x-twitter-active-user: yes',
+      'x-twitter-client-language: en',
+      'x-twitter-auth-type: OAuth2Session',
+      'origin: https://x.com',
+      'sec-ch-ua: "Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+      'sec-ch-ua-mobile: ?0',
+      'sec-ch-ua-platform: "Windows"',
+      'sec-fetch-dest: empty',
+      'sec-fetch-mode: cors',
+      'sec-fetch-site: same-origin'
     ]
   }
 
@@ -85,13 +99,7 @@ export class Twitter {
         if (header.startsWith('Cookie:')) return `${header}; ct0=${ct0}`
         return header
       }),
-      ...[
-        'authorization: Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-        'x-twitter-active-user: yes',
-        'x-twitter-client-language: en',
-        `x-csrf-token: ${ct0}`,
-        'x-twitter-auth-type: OAuth2Session'
-      ]
+      `x-csrf-token: ${ct0}`
     ]
   }
 
@@ -244,9 +252,28 @@ export class Twitter {
     try {
       const headers = [...this.headers, 'Content-Type: application/x-www-form-urlencoded']
 
-      await curl.post('https://twitter.com/i/api/1.1/friendships/create.json', payload, headers)
+      const res = await curl.post('https://x.com/i/api/1.1/friendships/create.json', payload, headers)
 
-      logger.info('twitter follow success')
+      const statusCode = res.statusCode
+
+      if (statusCode === 200) {
+        logger.info('twitter follow success')
+
+        return true
+      }
+
+      logger.error(JSON.stringify(res.data.errors))
+
+      if (res.data.errors[0].code === 64) {
+        throw {
+          code: res.data.errors[0].code,
+          data: res.data.errors[0],
+          message: `[twitter] request ${action} error, info: ${JSON.stringify(res.data.errors)}`,
+          extra: this.authToken
+        }
+      }
+
+      return false
     } catch (err: any) {
       if (err.code === 139) {
         logger.warn(`[twitter] ${err.data.message}`)
@@ -256,7 +283,5 @@ export class Twitter {
 
       throw err
     }
-
-    return true
   }
 }

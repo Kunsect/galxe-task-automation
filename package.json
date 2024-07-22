@@ -15,6 +15,7 @@
     "ecpair": "^2.1.0",
     "ethers": "^6.13.1",
     "node-libcurl": "^4.0.0",
+    "querystring": "^0.2.1",
     "tiny-secp256k1": "^2.2.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",

@@ -26,7 +26,7 @@ export class CaptchaDecoder {
   apiUrl?: string
   clientKey?: string
   taskPayload: ITaskPayload = {
-    type: 'GeeTestTaskProxyless',
+    type: 'GeetestTaskProxyless',
     websiteURL: GALXE_URL
   }
 
@@ -56,8 +56,7 @@ export class CaptchaDecoder {
     this.apiUrl = CAPSOLVER_API_URL
     this.taskPayload = {
       ...this.taskPayload,
-      captchaId: GALXE_CAPTCHA_ID,
-      geetestApiServerSubdomain: 'graphigo.prd.galaxy.eco'
+      captchaId: GALXE_CAPTCHA_ID
     }
   }
 

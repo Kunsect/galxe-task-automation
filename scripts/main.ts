@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import logger from './../src/logger'
-import { Galxe, IUser } from './../src/galxe'
+import { Galxe } from './../src/galxe'
 import { readFileToArray, waittingBetween } from './../src/utils/common'
 import 'dotenv/config'
 
@@ -18,16 +18,12 @@ const main = async () => {
   const maxPathIndex: number = Number(process.env.MAX_PATH_INDEX)
 
   while (pathIndex < maxPathIndex) {
-    let userInfo: IUser
-
     const galxe = new Galxe(pathIndex)
 
     try {
       await galxe.authLogin()
 
       await galxe.updateBaseInfo()
-
-      userInfo = await galxe.getUserInfo()
 
       await galxe.startCampaigns()
 
@@ -43,12 +39,14 @@ const main = async () => {
        * 捕捉到上述错误码的一般为不可用的 twitter 号，需要从列表中剔除并重新绑定 twitter 执行任务
        *
        * 37: Authorization: Denied by access control: Missing TwitterUserNotSuspended
+       * 64: Your account is suspended and is not permitted to access this feature
+       * 141: Authorization: User (uid: 1813038126891200512) is suspended, deactivated or offboarded
        * 187: Authorization: Status is a duplicate. (187)
        * 1000: get ct0 fail
        */
       const needTwitter = Number(process.env.NEED_TWITTER) === 1
       if (needTwitter) {
-        const twitterErrorCode = [32, 37, 187, 326, 1000]
+        const twitterErrorCode = [32, 37, 64, 141, 187, 326, 1000]
 
         if (twitterErrorCode.includes(err.code)) {
           await galxe.unbindTwitter()

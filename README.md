@@ -9,7 +9,7 @@
 - 绑定 Taproot 地址
 - 完成任务
 - 章节奖励领取
-- Geetest 自动验证：2captcha（推荐）、capsolver
+- Geetest 自动验证：2captcha（现在经常报错）、capsolver（推荐）
 
 ## 支持任务
 

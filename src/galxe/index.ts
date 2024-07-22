@@ -14,7 +14,10 @@ const HEADERS = [
   'Accept: */*',
   'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8',
   'Origin: https://app.galxe.com',
-  'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+  'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'Sec-Ch-Ua: "Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+  'Sec-Ch-Ua-Mobile: ?0',
+  'Sec-Ch-Ua-Platform: "Windows"'
 ]
 
 export interface IUser {
@@ -30,7 +33,6 @@ interface ITask {
   campaignId: string
   name: string
   eligible: number
-  answers: any
   credSource: string
   credType: string
   claimed: boolean
@@ -93,7 +95,13 @@ export class Galxe {
     this.address = this.walletManager.evmWallet.address
   }
 
-  private async request(operationName: string, query: string, body: object, desc: string | null = null): Promise<any> {
+  private async request(
+    operationName: string,
+    query: string,
+    body: object,
+    desc: string | null = null,
+    needCaptcha: boolean = false
+  ): Promise<any> {
     if (desc) logger.debug(`requesting ${desc}.`)
 
     const headers = [...HEADERS, ...(this.authorization ? [this.authorization] : [])]
@@ -104,33 +112,50 @@ export class Galxe {
       variables: body
     }
 
-    const res = await curl.post(GALXE_URL, payload, headers)
+    let result = null
+    for (let i = 0; i < 3; i++) {
+      if (needCaptcha) {
+        const captcha: ICaptchaParams | null = await this.captchaDecoder.getCaptcha()
 
-    await waittingBetween(3000, 4500)
+        if ((payload.variables as any).input instanceof Object) {
+          ;(payload.variables as any).input.captcha = captcha
+        }
+      }
 
-    if (res.data.errors) {
-      console.log(JSON.stringify(payload))
+      const res = await curl.post(GALXE_URL, payload, headers)
 
-      throw Error(`request error, info: ${JSON.stringify(res.data.errors)}`)
-    }
+      await waittingBetween(3000, 4500)
 
-    if (desc) logger.info(`${desc} completed.`)
+      if (res.data.errors) {
+        console.log(JSON.stringify(payload))
 
-    return res
-  }
+        const message = res.data.errors[0]['message']
 
-  private async sendEmailCode(email: string) {
-    const captcha: ICaptchaParams | null = await this.captchaDecoder.getCaptcha()
+        // 解码平台 token 有误
+        if (message.includes('pass_token error')) {
+          logger.warn(`[captcha] failed to verify recaptcha token, (${i + 1} / 3) will try again, info: ${message}`)
 
-    const body = {
-      input: {
-        email,
-        captcha,
-        address: `EVM:${this.address}`
+          await waittingBetween(5000, 7000)
+        } else {
+          throw Error(`request error, info: ${JSON.stringify(res.data.errors)}`)
+        }
+      } else {
+        if (desc) logger.info(`${desc} completed.`)
+
+        result = res
+        break
       }
     }
 
-    await this.request('SendVerifyCode', GalxeQuery.sendEmailCode, body)
+    return result
+  }
+
+  private async sendEmailCode(email: string) {
+    const body = {
+      input: { email, address: `EVM:${this.address}` }
+    }
+
+    await this.request('SendVerifyCode', GalxeQuery.sendEmailCode, body, 'send email code', true)
   }
 
   async authLogin() {
@@ -240,7 +265,7 @@ export class Galxe {
       // 前置交互
       switch (task.credType) {
         case 'TWITTER':
-          await this.tryAppend(task, taskLabel)
+          if (task.credSource === 'TWITTER_LIKE') await this.tryAppend(task, taskLabel)
 
           const captcha: ICaptchaParams | null = await this.captchaDecoder.getCaptcha()
           body.input.syncOptions = {
@@ -278,49 +303,6 @@ export class Galxe {
           }
           break
 
-        case 'TWITTER_FOLLOW': {
-          // 关注推特
-          const nameMatch = task.referenceLink!.match(/[?&]screen_name=([^&]+)/)
-          const name = nameMatch && nameMatch[1]
-          if (!name) throw Error('tweet name not found.')
-
-          await this.twitter.follow(name)
-          await waittingBetween(5000, 8000)
-          break
-        }
-
-        case 'TWITTER_LIKE': {
-          // 点赞推文
-          const tweetIdMatch = task.referenceLink!.match(/tweet_id=(\d+)/)
-          const tweetId = tweetIdMatch && tweetIdMatch[1]
-          if (!tweetId) throw Error('tweet id not found.')
-
-          await this.twitter.likeTweet(tweetId)
-          await waittingBetween(5000, 8000)
-          break
-        }
-
-        case 'TWITTER_RT': {
-          // 转发推文
-          const tweetIdMatch = task.referenceLink!.match(/tweet_id=(\d+)/)
-          const tweetId = tweetIdMatch && tweetIdMatch[1]
-          if (!tweetId) throw Error('tweet id not found.')
-
-          await this.twitter.reTweet(tweetId)
-          await waittingBetween(5000, 8000)
-          break
-        }
-
-        case 'TWITTER_QUOTE': {
-          // 创建推文并 @ 好友
-          const tweetUrlMatch = task.description!.match(/\(([^)]+)\)/)
-          const tweetUrl = tweetUrlMatch && tweetUrlMatch[1]
-
-          await this.twitter.createPost(`@Kunsect7 ${tweetUrl}`)
-          await waittingBetween(5000, 8000)
-          break
-        }
-
         default:
           break
       }
@@ -341,14 +323,6 @@ export class Galxe {
       if (credValue.message) {
         logger.error(`${taskLabel} complete fail: ${credValue.message}`)
       }
-
-      // if (extra && extra.type === ETaskExtraType.Answers) {
-      //   if (credValue.value.quiz.allow) {
-      //     result = true
-
-      //     break
-      //   }
-      // }
 
       if (i < retryCount - 1) {
         console.log(JSON.stringify(credValue))
@@ -373,12 +347,10 @@ export class Galxe {
     for (let i = 0; i < 5; i++) {
       await waittingBetween(3000, 5000)
 
-      const captcha: ICaptchaParams | null = await this.captchaDecoder.getCaptcha()
       const campaignLabel = `[CAMPAIGN - ${campaign.name}]`
 
       const body = {
         input: {
-          captcha,
           chain: 'ETHEREUM',
           campaignID: campaign.id,
           address: `EVM:${this.address}`,
@@ -387,7 +359,7 @@ export class Galxe {
         }
       }
 
-      const res = await this.request('PrepareParticipate', GalxeQuery.claimCampaign, body, campaignLabel)
+      const res = await this.request('PrepareParticipate', GalxeQuery.claimCampaign, body, campaignLabel, true)
 
       if (!res.data.data.prepareParticipate.allow) {
         const reason = res.data.data.prepareParticipate.disallowReason
@@ -474,15 +446,12 @@ export class Galxe {
   }
 
   async tryAppend(task: ITask, label: string) {
-    const captcha: ICaptchaParams | null = await this.captchaDecoder.getCaptcha()
-
     const appendBody = {
       input: {
         credId: task.id,
         campaignId: task.campaignId,
         operation: 'APPEND',
-        items: [`EVM:${this.address}`],
-        captcha
+        items: [`EVM:${this.address}`]
       }
     }
 
@@ -490,7 +459,8 @@ export class Galxe {
       'AddTypedCredentialItems',
       GalxeQuery.addTypedCredentialItems,
       appendBody,
-      `[append credential] try append by ${label}`
+      `[append credential] try append by ${label}`,
+      true
     )
 
     await waittingBetween(5000, 8000)
@@ -530,6 +500,8 @@ export class Galxe {
     })
 
     // 根据 .env 的 GALXE_CAMPAIGNS_INDEXES 重新渲染执行任务列表
+    // 若有 twitter 先完成 twitter 的前置交互
+    const twitterTasks: ITask[] = []
     if (GALXE_CAMPAIGNS_INDEXES) {
       const [campaignIndex, groupIndex, tasksIndexes] = GALXE_CAMPAIGNS_INDEXES.split(':')
       const tasksArr = tasksIndexes.split(',').map(Number)
@@ -540,11 +512,17 @@ export class Galxe {
       const selectedTasks = selectedCampaign.group[0]['tasks'].filter((item, index) => tasksArr.includes(index))
       const unselectedTasks = selectedCampaign.group[0]['tasks'].filter((item, index) => !tasksArr.includes(index))
 
+      selectedTasks.map((task) => {
+        if (!task.eligible && task.credType === 'TWITTER') twitterTasks.push(task)
+      })
+
       selectedCampaign.group[0]['tasks'] = selectedTasks
       selectedCampaign.group[0]['allEligible'] = unselectedTasks.every((task: ITask) => task.eligible)
 
       campaigns = [selectedCampaign]
     }
+
+    if (twitterTasks.length) await this.startTwitterTasks(twitterTasks)
 
     for (let campaign of campaigns) {
       if (campaign.claimed) {
@@ -561,6 +539,56 @@ export class Galxe {
 
         if (item.allEligible && tasksResult.every((result) => result)) await this.claimCampaign(campaign)
       }
+    }
+  }
+
+  async startTwitterTasks(twitterTasks: ITask[]) {
+    for (let task of twitterTasks) {
+      switch (task.credSource) {
+        case 'TWITTER_FOLLOW': {
+          // 关注推特
+          const nameMatch = task.referenceLink!.match(/[?&]screen_name=([^&]+)/)
+          const name = nameMatch && nameMatch[1]
+          if (!name) throw Error('tweet name not found.')
+
+          await this.twitter.follow(name)
+          break
+        }
+
+        case 'TWITTER_LIKE': {
+          // 点赞推文
+          const tweetIdMatch = task.referenceLink!.match(/tweet_id=(\d+)/)
+          const tweetId = tweetIdMatch && tweetIdMatch[1]
+          if (!tweetId) throw Error('tweet id not found.')
+
+          await this.twitter.likeTweet(tweetId)
+          break
+        }
+
+        case 'TWITTER_RT': {
+          // 转发推文
+          const tweetIdMatch = task.referenceLink!.match(/tweet_id=(\d+)/)
+          const tweetId = tweetIdMatch && tweetIdMatch[1]
+          if (!tweetId) throw Error('tweet id not found.')
+
+          await this.twitter.reTweet(tweetId)
+          break
+        }
+
+        case 'TWITTER_QUOTE': {
+          // 创建推文并 @ 好友
+          const tweetUrlMatch = task.description!.match(/\(([^)]+)\)/)
+          const tweetUrl = tweetUrlMatch && tweetUrlMatch[1]
+
+          await this.twitter.createPost(`@MaplestoryU ${tweetUrl}`)
+          break
+        }
+
+        default:
+          break
+      }
+
+      await waittingBetween(5000, 8000)
     }
   }
 }
