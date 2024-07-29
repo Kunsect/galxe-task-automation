@@ -5,6 +5,7 @@ import 'dotenv/config'
 
 const CAPSOLVER_API_URL: string = 'https://api.capsolver.com'
 const TWO_CAPTCHA_API_URL: string = 'https://api.2captcha.com'
+const CAPMONSTER_API_URL: string = 'https://api.capmonster.cloud'
 
 const GALXE_URL: string = 'https://app.galxe.com/quest'
 const GALXE_CAPTCHA_ID: string = '244bcb8b9846215df5af4c624a750db4'
@@ -17,7 +18,6 @@ export interface ICaptchaParams {
 }
 
 interface ITaskPayload {
-  type: string
   websiteURL: string
   [key: string]: any
 }
@@ -26,27 +26,15 @@ export class CaptchaDecoder {
   apiUrl?: string
   clientKey?: string
   taskPayload: ITaskPayload = {
-    type: 'GeetestTaskProxyless',
     websiteURL: GALXE_URL
   }
 
   constructor() {
-    const { CAPSOLVER_CLIENT_KEY, TWO_CAPTCHA_CLIENT_KEY } = process.env
+    const { CAPSOLVER_CLIENT_KEY, TWO_CAPTCHA_CLIENT_KEY, CAPMONSTER_CLIENT_KEY } = process.env
 
-    if (TWO_CAPTCHA_CLIENT_KEY) this.initializeTwoCaptcha()
-    else if (CAPSOLVER_CLIENT_KEY) this.initializeCapsolver()
-  }
-
-  private initializeTwoCaptcha() {
-    const { TWO_CAPTCHA_CLIENT_KEY } = process.env
-
-    this.clientKey = TWO_CAPTCHA_CLIENT_KEY
-    this.apiUrl = TWO_CAPTCHA_API_URL
-    this.taskPayload = {
-      ...this.taskPayload,
-      version: 4,
-      initParameters: { captcha_id: GALXE_CAPTCHA_ID }
-    }
+    if (CAPSOLVER_CLIENT_KEY) this.initializeCapsolver()
+    else if (TWO_CAPTCHA_CLIENT_KEY) this.initializeTwoCaptcha()
+    else if (CAPMONSTER_CLIENT_KEY) this.initializeTwoCaptcha()
   }
 
   private initializeCapsolver() {
@@ -56,7 +44,35 @@ export class CaptchaDecoder {
     this.apiUrl = CAPSOLVER_API_URL
     this.taskPayload = {
       ...this.taskPayload,
+      type: 'GeetestTaskProxyless',
       captchaId: GALXE_CAPTCHA_ID
+    }
+  }
+
+  private initializeTwoCaptcha() {
+    const { TWO_CAPTCHA_CLIENT_KEY } = process.env
+
+    this.clientKey = TWO_CAPTCHA_CLIENT_KEY
+    this.apiUrl = TWO_CAPTCHA_API_URL
+    this.taskPayload = {
+      ...this.taskPayload,
+      type: 'GeeTestTaskProxyless',
+      version: 4,
+      initParameters: { captcha_id: GALXE_CAPTCHA_ID }
+    }
+  }
+
+  private initializeCapMonsterCaptcha() {
+    const { CAPMONSTER_CLIENT_KEY } = process.env
+
+    this.clientKey = CAPMONSTER_CLIENT_KEY
+    this.apiUrl = CAPMONSTER_API_URL
+    this.taskPayload = {
+      ...this.taskPayload,
+      type: 'GeeTestTaskProxyless',
+      gt: GALXE_CAPTCHA_ID,
+      version: 4,
+      initParameters: { riskType: 'slide' }
     }
   }
 
