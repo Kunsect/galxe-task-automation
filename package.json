@@ -1,7 +1,8 @@
 {
   "author": "SohaDao - Kunsect",
   "scripts": {
-    "start": "ts-node scripts/main.ts"
+    "start": "ts-node scripts/main.ts",
+    "space-score": "ts-node scripts/score.ts"
   },
   "devDependencies": {
     "@types/bip39": "^3.0.0",

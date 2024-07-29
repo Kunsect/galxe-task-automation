@@ -526,8 +526,9 @@ export class Galxe {
 
     for (let campaign of campaigns) {
       if (campaign.claimed) {
-        logger.info(`CAMPAIGN - ${campaign.name} completed, skip next campaign.`)
-        return
+        logger.info(`[CAMPAIGN - ${campaign.name}] completed, skip next campaign.`)
+
+        continue
       }
 
       for (let item of campaign.group) {
@@ -590,5 +591,18 @@ export class Galxe {
 
       await waittingBetween(5000, 8000)
     }
+  }
+
+  async getSpaceScore(name: string) {
+    const body = {
+      alias: name,
+      address: `EVM:${this.address}`,
+      firstTailoredTask: 10,
+      afterTailoredTask: '-1'
+    }
+
+    const res = await this.request('SpaceBasicWithAuthQuery', GalxeQuery.spaceInfo, body, `get space score`)
+
+    return res.data.data.space
   }
 }

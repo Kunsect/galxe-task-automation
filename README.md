@@ -10,6 +10,7 @@
 - 完成任务
 - 章节奖励领取
 - Geetest 自动验证：2captcha（现在经常报错）、capsolver（推荐）
+- 批量查询地址 space 分数
 
 ## 支持任务
 
@@ -24,6 +25,8 @@
 GALXE_COLLECT：银河合集 id，可以通过 URL 获取。如 https://app.galxe.com/quest/Babylon/GCyyntz73L 则为 GCyyntz73L。
 
 GALXE_CAMPAIGNS_INDEXES：执行任务下标，从 0 开始计算，`:`分隔活动、任务组、任务，`,` 分隔不同任务。
+
+SPACE_NAME：通过 space url 获取，如 https://app.galxe.com/quest/MapleStoryUniverse 则为 MapleStoryUniverse。
 
 ```
 # 可测试任务的活动
@@ -48,7 +51,8 @@ GALXE_CAMPAIGNS_INDEXES="3:0:0"
 
 ```bash
 npm i
-npm run start
+npm run start # 执行银河任务
+npm run space-score # 批量查询地址 space 分数
 ```
 
 ## 后续规划

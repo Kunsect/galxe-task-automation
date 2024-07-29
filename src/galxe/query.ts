@@ -20,5 +20,7 @@ export const GalxeQuery = {
     'mutation AddTypedCredentialItems($input: MutateTypedCredItemInput!) {\n  typedCredentialItems(input: $input) {\n    id\n    __typename\n  }\n}',
   deleteSocialAccount:
     'mutation DeleteSocialAccount($input: DeleteSocialAccountInput!) {\n  deleteSocialAccount(input: $input) {\n    code\n    message\n    __typename\n  }\n}',
-  followSpace: 'mutation followSpace($spaceIds: [Int!]) {\n  followSpace(spaceIds: $spaceIds)\n}'
+  followSpace: 'mutation followSpace($spaceIds: [Int!]) {\n  followSpace(spaceIds: $spaceIds)\n}',
+  spaceInfo:
+    'query SpaceBasicWithAuthQuery($id: Int, $alias: String, $address: String!, $firstTailoredTask: Int, $afterTailoredTask: String) {\n  space(id: $id, alias: $alias) {\n    ...SpaceTailoredTasksWithAuth\n    id\n    isFollowing\n    isAdmin(address: $address)\n    addressLoyaltyPoints(address: $address) {\n      id\n      points\n      rank\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment SpaceTailoredTasksWithAuth on Space {\n  tailoredTasks(first: $firstTailoredTask, after: $afterTailoredTask) {\n    totalCount\n    pageInfo {\n      hasNextPage\n      __typename\n    }\n    list {\n      id\n      spaceId\n      title\n      description\n      link\n      tag\n      points\n      startTime\n      claimedPoints(address: $address)\n      __typename\n    }\n    __typename\n  }\n  __typename\n}'
 }
