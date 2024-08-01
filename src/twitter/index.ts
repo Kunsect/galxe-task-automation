@@ -16,8 +16,7 @@ export class Twitter {
       const twitterAccounts = readFileToArray('twitter.txt')
 
       if (twitterAccounts.length) {
-        const arr = twitterAccounts[pathIndex - 587].split(':')
-        this.authToken = arr[arr.length === 7 ? 6 : 4]
+        this.authToken = twitterAccounts[pathIndex]
 
         logger.info(`the twitter auth token is ${this.authToken}`)
       }
